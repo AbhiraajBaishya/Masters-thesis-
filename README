@@ -1,1 +1,101 @@
-This repo contains the code and results relevant to my thesis. My final thesis as a pdf is also present in the repository.
+# Development of a Double-b Tagger for Boosted Higgs Jets
+
+Master's thesis (BS-MS Physics, IISER Berhampur), carried out at the Centre for High Energy Physics, Indian Institute of Science (IISc) Bengaluru, under the supervision of Prof. Jyothsna Rani Komaragiri.
+
+**Author:** Abhiraaj Baishya
+**Full thesis:** [`Final Thesis.pdf`](Final%20Thesis.pdf)
+
+---
+
+## Overview
+
+When a Higgs boson is produced with high momentum (pT > 350 GeV) and decays to a pair of bottom quarks (H → b b̄), the two b-quarks merge into a single wide jet (an AK8 "FatJet"). Telling this jet apart from the enormous QCD multijet background is hard, because standard b-tagging was designed for isolated jets.
+
+This project builds and compares two taggers for this problem:
+
+1. **Phase I: XGBoost BDT** trained on 38 high-level jet variables (SoftDrop mass, N-subjettiness, sub-jet b-tag scores, track significances, etc.).
+2. **Phase II: Multi-Input Deep Neural Network** (PyTorch) that also reads low-level constituents through four input branches:
+   - Global jet features (38 variables, dense layer)
+   - Particle-flow candidates (100 leading, 1D-CNN)
+   - Tracks (60 highest impact-parameter significance, 1D-CNN)
+   - Secondary vertices (5 leading, 1D-CNN)
+
+   The branches are concatenated and passed through a dense classification head (2 × 256 units, BatchNorm, ReLU, Dropout 0.2, sigmoid output).
+
+Both are benchmarked against the default CMS DeepDoubleB tagger.
+
+## Key results
+
+Evaluated on an independent test set (√s = 13 TeV simulation).
+
+| Tagger | AUC | Signal eff. @ 0.1% bkg eff. | @ 1% | @ 10% |
+|---|---|---|---|---|
+| CMS DeepDoubleB (default) | 0.916 | ~5% | 29% | 76% |
+| Phase I: BDT (38 global features) | 0.971 | ~15% | 63% | 92% |
+| **Phase II: Multi-Input DNN** | **0.982** | **~30%** | **72%** | **96%** |
+
+Other findings:
+
+- **Stable across phase space.** The DNN keeps AUC ≥ 0.978 in all pT bins (350 to 2000 GeV) and 0.949 to 0.978 across SoftDrop-mass bins.
+- **The particle-flow branch matters most.** Permutation-based sensitivity analysis (ΔAUC) ranks the PF-candidate branch highest (ΔAUC ≈ 0.127), ahead of the global branch (≈ 0.034), tracks (≈ 0.021) and secondary vertices (≈ 0.005).
+- **Physically sensible features.** Top-ranked inputs include `fj_ptDR`, `pfcand_fromPV`, and track and vertex displacement variables, in line with expected b-hadron and two-prong signatures.
+- **Operating point at score threshold 0.5:** 92.2% signal efficiency and 94.2% background rejection (DNN), versus 86.5% and 94.7% (BDT).
+
+## Data
+
+- **Signal:** Bulk Graviton (G → hh → b b̄ b b̄) boosted Higgs jets, truth-matched to H → b b̄.
+- **Background:** inclusive QCD multijet jets.
+- **Source:** CMS Open Data simulation, [add dataset name / DOI / download link here].
+- **Selection:** 350 < pT < 2000 GeV and 40 < mSD < 200 GeV.
+
+> The datasets are too large to host in this repository. See the thesis (Chapter 3) for the full variable definitions, and add download instructions above.
+
+## Repository contents
+
+| File | Description |
+|---|---|
+| `DoubleB_BDT_Formatted.ipynb` | Phase I: feature extraction with `uproot`, XGBoost BDT training and evaluation (ROC, confusion matrix, feature importance) |
+| `DNNbasedtagger.ipynb` | Phase II: Multi-Input DNN, training, evaluation and sensitivity analysis |
+| `higgs_tagger_epoch3.pth` | Trained DNN weights (checkpoint after epoch 3) |
+| `DoubleB_full_particle_transformer.ipynb`, `DoubleB_particle_transformer_Hbb_labels.ipynb` | Exploratory Particle Transformer experiments (not part of the reported results; see thesis Section 6.2) |
+| `Untitled.ipynb` | Scratch notebook |
+| `image*.png` | Result plots used in the thesis |
+| `Final Thesis.pdf` | Full dissertation |
+
+## Methods in brief
+
+- **Data handling:** `uproot` + `awkward-array` to read ROOT files and handle ragged constituent arrays, zero-padded to fixed size for PyTorch.
+- **BDT:** XGBoost, 500 trees, max depth 5, learning rate 0.01, subsample and column sampling 0.8, L1 = 1, L2 = 3, `binary:logistic`.
+- **DNN:** Adam (lr = 1e-3), binary cross-entropy, batch size 256.
+- **Evaluation:** ROC/AUC, background rejection at fixed signal efficiency, pT and mSD binned ROCs, confusion matrices at a fixed threshold, score distributions, and ΔAUC permutation importance.
+
+## Setup
+
+```bash
+git clone https://github.com/AbhiraajBaishya/Masters-thesis-.git
+cd Masters-thesis-
+pip install numpy pandas matplotlib scikit-learn xgboost torch uproot awkward jupyter
+jupyter notebook
+```
+
+Run the BDT notebook first, then the DNN notebook. Update the data paths at the top of each notebook to point to your local copy of the dataset.
+
+*(Tested with Python [x.x], PyTorch [x.x], XGBoost [x.x]; fill in your versions.)*
+
+## Limitations
+
+- Results are on simulation only; no data/MC comparison or systematic uncertainties are included.
+- Signal comes from a single process (Bulk Graviton → hh), so performance on other Higgs production modes is untested.
+- Transformer-based models were explored but not completed due to limited compute.
+
+## Citation / contact
+
+If you use this work, please cite the thesis:
+
+> A. Baishya, *Development of a Double-b Tagger for Boosted Higgs Jets*, BS-MS dissertation, IISER Berhampur (2026).
+
+Contact: abhiraajbaishya2@gmail.com
+
+## Acknowledgements
+
+Prof. Jyothsna Rani Komaragiri and the Centre for High Energy Physics, IISc Bengaluru, for guidance and computing resources.
